@@ -272,7 +272,7 @@ jobs:
       - name: "List Docker images"
         run: |
           echo "📦 Built Docker images:"
-          docker images | grep chatapp
+          docker images | grep chat-app
 
       - name: "Login to Docker Hub"
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
