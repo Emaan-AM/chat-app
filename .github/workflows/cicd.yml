@@ -9,23 +9,25 @@ on:
 jobs:
   ci-cd:
     runs-on: ubuntu-latest
+
+    # PostgreSQL service
     services:
       postgres:
         image: postgres:15
         env:
-          POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
-          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
-          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          POSTGRES_DB: chatdb       # Static here, secrets can't be used
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: verysecurepassword
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U ${{ secrets.POSTGRES_USER }} -d ${{ secrets.POSTGRES_DB }}"
+          --health-cmd "pg_isready -U postgres -d chatdb"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
 
     steps:
-      # 1️⃣ Checkout repo
+      # 1️⃣ Checkout repository
       - name: Checkout code
         uses: actions/checkout@v3
 
@@ -70,6 +72,9 @@ jobs:
       # 8️⃣ Run backend tests
       - name: Run backend tests
         env:
+          POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
+          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           BACKEND_APP_SETTINGS: ${{ secrets.BACKEND_APP_SETTINGS }}
           SECRET_KEY: ${{ secrets.SECRET_KEY }}
@@ -81,7 +86,7 @@ jobs:
       # 9️⃣ Create frontend .env from secrets
       - name: Create .env for frontend
         run: |
-          echo "REACT_APP_BACKEND_SERVICE_URL=${{ secrets.REACT_APP_BACKEND_SERVICE_URL }}" >> services/frontend/.env
+          echo "REACT_APP_BACKEND_SERVICE_URL=${{ secrets.REACT_APP_BACKEND_SERVICE_URL }}" > services/frontend/.env
           echo "REACT_APP_WEBSOCKET_SERVICE_URL=${{ secrets.REACT_APP_WEBSOCKET_SERVICE_URL }}" >> services/frontend/.env
           echo "NODE_ENV=development" >> services/frontend/.env
 
@@ -94,7 +99,7 @@ jobs:
       # 1️⃣1️⃣ Build Docker images
       - name: Build Docker images
         run: |
-          docker-compose -f docker-compose.yml build
+          docker compose -f docker-compose.yml build
 
       # 1️⃣2️⃣ Login to Docker Hub
       - name: Login to Docker Hub
@@ -108,4 +113,4 @@ jobs:
       - name: Push Docker images
         if: github.ref == 'refs/heads/main'
         run: |
-          docker-compose -f docker-compose.yml push
+          docker compose -f docker-compose.yml push
