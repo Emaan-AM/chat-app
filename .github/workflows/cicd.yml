@@ -6,16 +6,22 @@ on:
   pull_request:
     branches: [main, develop]
 
+# ============================================
+# JOBS
+# ============================================
 jobs:
   # ============================================
-  # STAGE 1: Checkout & Setup
+  # Stage 1: Checkout & Setup
   # ============================================
   setup:
     name: "Stage 1: Checkout & Setup"
     runs-on: ubuntu-latest
+    outputs:
+      python-version: '3.10'
+      node-version: '18'
     steps:
       - name: "Checkout code"
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: "Set up Python 3.10"
         uses: actions/setup-python@v4
@@ -23,9 +29,11 @@ jobs:
           python-version: '3.10'
 
       - name: "Set up Node.js 18"
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: services/frontend/package-lock.json
 
       - name: "Verify Setup"
         run: |
@@ -34,7 +42,7 @@ jobs:
           echo "  npm version: $(npm --version)"
 
   # ============================================
-  # STAGE 2: Install Dependencies (Build & Install)
+  # Stage 2: Install Dependencies
   # ============================================
   install-dependencies:
     name: "Stage 2: Build & Install Dependencies"
@@ -42,19 +50,9 @@ jobs:
     needs: setup
     steps:
       - name: "Checkout code"
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      - name: "Set up Python 3.10"
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
-
-      - name: "Set up Node.js 18"
-        uses: actions/setup-node@v3
-        with:
-          node-version: '18'
-
-      - name: "Install system dependencies for Python packages"
+      - name: "Install system dependencies"
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -83,7 +81,7 @@ jobs:
           echo "  Frontend dependencies installed"
 
   # ============================================
-  # STAGE 3: Lint & Security Scan
+  # Stage 3: Lint & Security
   # ============================================
   lint-and-security:
     name: "Stage 3: Lint & Security Scan"
@@ -91,7 +89,7 @@ jobs:
     needs: install-dependencies
     steps:
       - name: "Checkout code"
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: "Set up Python 3.10"
         uses: actions/setup-python@v4
@@ -128,6 +126,7 @@ jobs:
         run: |
           echo "  Running Bandit security scan..."
           cd services/backend
+          flake8 . --max-line-length=120 --extend-ignore=E203,W503
           bandit -r . -ll || true
           echo "  Bandit security scan completed"
 
@@ -138,7 +137,7 @@ jobs:
           safety check || true
           echo "  Dependency check completed"
 
-      - name: "Frontend Lint - ESLint"
+      - name: "Frontend Lint & Security"
         run: |
           echo "  Running ESLint..."
           cd services/frontend
@@ -153,7 +152,7 @@ jobs:
           echo "  npm audit completed"
 
   # ============================================
-  # STAGE 4: Test (with DB Service)
+  # Stage 4: Test
   # ============================================
   test:
     name: "Stage 4: Test with PostgreSQL"
@@ -163,13 +162,13 @@ jobs:
       postgres:
         image: postgres:15
         env:
-          POSTGRES_DB: chatdb
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: verysecurepassword
+          POSTGRES_DB: test_chatdb
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_password
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U postgres -d chatdb"
+          --health-cmd "pg_isready -U test_user -d test_chatdb"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
@@ -200,24 +199,24 @@ jobs:
           pip install -r requirements.txt
           pip install pytest pytest-cov
 
-      - name: "Wait for PostgreSQL to be ready"
+      - name: "Wait for PostgreSQL"
         run: |
           echo " Waiting for PostgreSQL to be ready..."
           for i in {1..30}; do
-            pg_isready -h localhost -p 5432 -U postgres && break
+            pg_isready -h localhost -p 5432 -U test_user && break
             echo "Waiting for PostgreSQL... ($i/30)"
             sleep 2
           done
           echo "  PostgreSQL is ready"
 
-      - name: "Run backend tests with coverage"
+      - name: "Run backend tests"
         env:
-          POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
-          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
-          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
-          DATABASE_URL: postgresql://postgres:verysecurepassword@localhost:5432/chatdb
-          BACKEND_APP_SETTINGS: ${{ secrets.BACKEND_APP_SETTINGS }}
-          SECRET_KEY: ${{ secrets.SECRET_KEY }}
+          POSTGRES_DB: test_chatdb
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_password
+          DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_chatdb
+          FLASK_ENV: testing
+          SECRET_KEY: test-secret-key-for-ci-cd
           PYTHONPATH: ${{ github.workspace }}/services/backend
         run: |
           echo " Running backend tests..."
@@ -225,16 +224,11 @@ jobs:
           pytest tests -v --cov=. --cov-report=term-missing || true
           echo "  Backend tests completed"
 
-      - name: "Install frontend dependencies"
+      - name: "Create frontend test environment"
         run: |
-          cd services/frontend
-          npm install
-
-      - name: "Create frontend .env from secrets"
-        run: |
-          echo "REACT_APP_BACKEND_SERVICE_URL=${{ secrets.REACT_APP_BACKEND_SERVICE_URL }}" > services/frontend/.env
-          echo "REACT_APP_WEBSOCKET_SERVICE_URL=${{ secrets.REACT_APP_WEBSOCKET_SERVICE_URL }}" >> services/frontend/.env
-          echo "NODE_ENV=development" >> services/frontend/.env
+          echo "REACT_APP_BACKEND_SERVICE_URL=http://localhost:5004" > services/frontend/.env.test
+          echo "REACT_APP_WEBSOCKET_SERVICE_URL=ws://localhost:5001" >> services/frontend/.env.test
+          echo "NODE_ENV=test" >> services/frontend/.env.test
 
       - name: "Run frontend tests"
         run: |
@@ -244,16 +238,19 @@ jobs:
           echo "  Frontend tests completed"
 
   # ============================================
-  # STAGE 5: Build Docker Images & Deploy
+  # Stage 5: Docker Build & Deploy
   # ============================================
   docker-build-deploy:
     name: "Stage 5: Build Docker Images & Deploy"
     runs-on: ubuntu-latest
     needs: test
-    if: success()
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
     steps:
       - name: "Checkout code"
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
+
+      - name: "Set up Docker Buildx"
+        uses: docker/setup-buildx-action@v2
 
       - name: "Create .env for Docker Compose"
         run: |
@@ -286,21 +283,18 @@ jobs:
           docker images | grep chat-app || docker images
 
       - name: "Login to Docker Hub"
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         uses: docker/login-action@v2
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: "Push Docker images to Docker Hub"
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+      - name: "Push Docker images"
         run: |
           echo " Pushing Docker images to Docker Hub..."
           docker compose -f docker-compose.yml push
           echo "  Docker images pushed successfully"
 
-      - name: "Show Deployment Logs"
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+      - name: "Show deployment logs"
         run: |
           echo "================================================"
           echo " DEPLOYMENT TO DOCKER HUB COMPLETED"
@@ -357,8 +351,21 @@ jobs:
           echo "Security Scans: Completed  "
           echo "================================================"
 
-      - name: "Verify Docker Hub Deployment"
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+  # ============================================
+  # Stage 6: Security Scan
+  # ============================================
+  security-scan:
+    name: "Stage 6: Security Scan"
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - name: "Checkout code"
+        uses: actions/checkout@v4
+
+      - name: "Scan for vulnerabilities"
+        uses: actions/dependency-review-action@v3
+
+      - name: "Scan Docker images"
         run: |
           echo "  Verifying images are available on Docker Hub..."
           echo ""
