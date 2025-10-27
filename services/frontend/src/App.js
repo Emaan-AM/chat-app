@@ -15,6 +15,7 @@ function App() {
         setMessages(responseData);
       });
   }, []);
+
   useEffect(() => {
     const socket = io(`${process.env.REACT_APP_WEBSOCKET_SERVICE_URL}`, {
       transports: ["websocket"],
@@ -44,8 +45,9 @@ function App() {
       socket.disconnect();
     };
   }, [messages]);
+
   return (
-    <div className="App">
+    <div className="App" data-testid="app-root">
       {messages.length !== 0 ? (
         <Messages messages={messages} />
       ) : (
