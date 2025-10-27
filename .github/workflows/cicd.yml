@@ -2,7 +2,7 @@ name: ChatApp CI/CD
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main, develop, line]
   pull_request:
     branches: [main, develop]
 
