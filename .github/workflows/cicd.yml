@@ -10,12 +10,11 @@ jobs:
   ci-cd:
     runs-on: ubuntu-latest
 
-    # PostgreSQL service
     services:
       postgres:
         image: postgres:15
         env:
-          POSTGRES_DB: chatdb       # Static here, secrets can't be used
+          POSTGRES_DB: chatdb
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: verysecurepassword
         ports:
@@ -27,23 +26,19 @@ jobs:
           --health-retries 5
 
     steps:
-      # 1️⃣ Checkout repository
       - name: Checkout code
         uses: actions/checkout@v3
 
-      # 2️⃣ Set up Python
       - name: Set up Python 3.10
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
 
-      # 3️⃣ Set up Node.js
       - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
           node-version: '18'
 
-      # 4️⃣ Install backend dependencies
       - name: Install backend dependencies
         run: |
           cd services/backend
@@ -51,25 +46,21 @@ jobs:
           pip install -r requirements.txt
           pip install pytest flake8
 
-      # 5️⃣ Install frontend dependencies
       - name: Install frontend dependencies
         run: |
           cd services/frontend
           npm install
 
-      # 6️⃣ Backend lint
       - name: Backend lint
         run: |
           cd services/backend
           flake8 .
 
-      # 7️⃣ Frontend lint
       - name: Frontend lint
         run: |
           cd services/frontend
           npx eslint .
 
-      # 8️⃣ Run backend tests
       - name: Run backend tests
         env:
           POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
@@ -83,25 +74,28 @@ jobs:
           cd services/backend
           pytest tests -v
 
-      # 9️⃣ Create frontend .env from secrets
-      - name: Create .env for frontend
+      - name: Create frontend .env from secrets
         run: |
           echo "REACT_APP_BACKEND_SERVICE_URL=${{ secrets.REACT_APP_BACKEND_SERVICE_URL }}" > services/frontend/.env
           echo "REACT_APP_WEBSOCKET_SERVICE_URL=${{ secrets.REACT_APP_WEBSOCKET_SERVICE_URL }}" >> services/frontend/.env
           echo "NODE_ENV=development" >> services/frontend/.env
 
-      # 🔟 Run frontend tests
       - name: Run frontend tests
         run: |
           cd services/frontend
           npm test -- --watchAll=false
 
-      # 1️⃣1️⃣ Build Docker images
-      - name: Build Docker images
+      # 🔹 Create Docker Compose .env before build
+      - name: Create .env for Docker Compose
         run: |
-          docker compose -f docker-compose.yml build
+          echo "POSTGRES_DB=${{ secrets.POSTGRES_DB }}" > .env
+          echo "POSTGRES_USER=${{ secrets.POSTGRES_USER }}" >> .env
+          echo "POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}" >> .env
+          echo "SECRET_KEY=${{ secrets.SECRET_KEY }}" >> .env
 
-      # 1️⃣2️⃣ Login to Docker Hub
+      - name: Build Docker images
+        run: docker compose -f docker-compose.yml build
+
       - name: Login to Docker Hub
         if: github.ref == 'refs/heads/main'
         uses: docker/login-action@v2
@@ -109,10 +103,6 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      # 1️⃣3️⃣ Push Docker images
       - name: Push Docker images
         if: github.ref == 'refs/heads/main'
-        run: |
-          docker compose -f docker-compose.yml push
-
-          
+        run: docker compose -f docker-compose.yml push
