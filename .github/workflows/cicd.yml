@@ -7,9 +7,77 @@ on:
     branches: [main, develop]
 
 jobs:
-  ci-cd:
+  # ============================================
+  # STAGE 1: Checkout & Setup
+  # ============================================
+  setup:
+    name: "Stage 1: Checkout & Setup"
     runs-on: ubuntu-latest
+    steps:
+      - name: "Checkout code"
+        uses: actions/checkout@v3
 
+      - name: "Set up Python 3.10"
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: "Set up Node.js"
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+  # ============================================
+  # STAGE 2: Install Dependencies
+  # ============================================
+  install-dependencies:
+    name: "Stage 2: Install Dependencies"
+    runs-on: ubuntu-latest
+    needs: setup
+    steps:
+      - name: "Checkout code"
+        uses: actions/checkout@v3
+
+      - name: "Install backend dependencies"
+        run: |
+          cd services/backend
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest flake8
+
+      - name: "Install frontend dependencies"
+        run: |
+          cd services/frontend
+          npm install
+
+  # ============================================
+  # STAGE 3: Lint
+  # ============================================
+  lint:
+    name: "Stage 3: Lint"
+    runs-on: ubuntu-latest
+    needs: install-dependencies
+    steps:
+      - name: "Checkout code"
+        uses: actions/checkout@v3
+
+      - name: "Backend lint"
+        run: |
+          cd services/backend
+          flake8 .
+
+      - name: "Frontend lint"
+        run: |
+          cd services/frontend
+          npx eslint .
+
+  # ============================================
+  # STAGE 4: Test
+  # ============================================
+  test:
+    name: "Stage 4: Test"
+    runs-on: ubuntu-latest
+    needs: lint
     services:
       postgres:
         image: postgres:15
@@ -24,44 +92,11 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
-
     steps:
-      - name: Checkout code
+      - name: "Checkout code"
         uses: actions/checkout@v3
 
-      - name: Set up Python 3.10
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '18'
-
-      - name: Install backend dependencies
-        run: |
-          cd services/backend
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install pytest flake8
-
-      - name: Install frontend dependencies
-        run: |
-          cd services/frontend
-          npm install
-
-      - name: Backend lint
-        run: |
-          cd services/backend
-          flake8 .
-
-      - name: Frontend lint
-        run: |
-          cd services/frontend
-          npx eslint .
-
-      - name: Run backend tests
+      - name: "Run backend tests"
         env:
           POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
           POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
@@ -74,41 +109,50 @@ jobs:
           cd services/backend
           pytest tests -v
 
-      - name: Create frontend .env from secrets
+      - name: "Create frontend .env from secrets"
         run: |
           echo "REACT_APP_BACKEND_SERVICE_URL=${{ secrets.REACT_APP_BACKEND_SERVICE_URL }}" > services/frontend/.env
           echo "REACT_APP_WEBSOCKET_SERVICE_URL=${{ secrets.REACT_APP_WEBSOCKET_SERVICE_URL }}" >> services/frontend/.env
           echo "NODE_ENV=development" >> services/frontend/.env
 
-      - name: Run frontend tests
+      - name: "Run frontend tests"
         run: |
           cd services/frontend
           npm test -- --watchAll=false
 
-      # 🔹 Create Docker Compose .env before build
-      - name: Create .env for Docker Compose
+  # ============================================
+  # STAGE 5: Docker Build & Deploy
+  # ============================================
+  docker-deploy:
+    name: "Stage 5: Docker Build & Deploy"
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - name: "Checkout code"
+        uses: actions/checkout@v3
+
+      - name: "Create .env for Docker Compose"
         run: |
           echo "POSTGRES_DB=${{ secrets.POSTGRES_DB }}" > .env
           echo "POSTGRES_USER=${{ secrets.POSTGRES_USER }}" >> .env
           echo "POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}" >> .env
           echo "SECRET_KEY=${{ secrets.SECRET_KEY }}" >> .env
 
-      - name: Build Docker images
+      - name: "Build Docker images"
         run: docker compose -f docker-compose.yml build
 
-      - name: Login to Docker Hub
+      - name: "Login to Docker Hub"
         if: github.ref == 'refs/heads/main'
         uses: docker/login-action@v2
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Push Docker images
+      - name: "Push Docker images"
         if: github.ref == 'refs/heads/main'
         run: docker compose -f docker-compose.yml push
 
-      # 🔹 ADD THIS STEP FOR DEPLOYMENT LOGS
-      - name: Show deployment logs
+      - name: "Show deployment logs"
         if: github.ref == 'refs/heads/main'
         run: |
           echo "=== DEPLOYMENT LOGS ==="
