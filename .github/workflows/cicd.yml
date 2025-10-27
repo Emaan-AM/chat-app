@@ -6,10 +6,10 @@ on:
   pull_request:
     branches: [main, develop]
 
+# ============================================
+# STAGE 1: Checkout & Setup
+# ============================================
 jobs:
-  # ============================================
-  # STAGE 1: Checkout & Setup
-  # ============================================
   setup:
     name: "Stage 1: Checkout & Setup"
     runs-on: ubuntu-latest
@@ -27,9 +27,9 @@ jobs:
         with:
           node-version: '18'
 
-  # ============================================
-  # STAGE 2: Install Dependencies
-  # ============================================
+# ============================================
+# STAGE 2: Install Dependencies
+# ============================================
   install-dependencies:
     name: "Stage 2: Install Dependencies"
     runs-on: ubuntu-latest
@@ -37,6 +37,11 @@ jobs:
     steps:
       - name: "Checkout code"
         uses: actions/checkout@v3
+
+      - name: "Install system dependencies for Pillow"
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libjpeg-dev zlib1g-dev gcc g++ python3-dev
 
       - name: "Install backend dependencies"
         run: |
@@ -50,9 +55,9 @@ jobs:
           cd services/frontend
           npm install
 
-  # ============================================
-  # STAGE 3: Lint
-  # ============================================
+# ============================================
+# STAGE 3: Lint
+# ============================================
   lint:
     name: "Stage 3: Lint"
     runs-on: ubuntu-latest
@@ -71,9 +76,9 @@ jobs:
           cd services/frontend
           npx eslint .
 
-  # ============================================
-  # STAGE 4: Test
-  # ============================================
+# ============================================
+# STAGE 4: Test
+# ============================================
   test:
     name: "Stage 4: Test"
     runs-on: ubuntu-latest
@@ -120,9 +125,9 @@ jobs:
           cd services/frontend
           npm test -- --watchAll=false
 
-  # ============================================
-  # STAGE 5: Docker Build & Deploy
-  # ============================================
+# ============================================
+# STAGE 5: Docker Build & Deploy
+# ============================================
   docker-deploy:
     name: "Stage 5: Docker Build & Deploy"
     runs-on: ubuntu-latest
