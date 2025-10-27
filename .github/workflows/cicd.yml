@@ -7,12 +7,9 @@ on:
     branches: [main, develop]
 
 # ============================================
-# JOBS
+# STAGE 1: Checkout & Setup
 # ============================================
 jobs:
-  # ============================================
-  # Stage 1: Checkout & Setup
-  # ============================================
   setup:
     name: "Stage 1: Checkout & Setup"
     runs-on: ubuntu-latest
@@ -41,9 +38,9 @@ jobs:
           echo "  Node version: $(node --version)"
           echo "  npm version: $(npm --version)"
 
-  # ============================================
-  # Stage 2: Install Dependencies
-  # ============================================
+# ============================================
+# STAGE 2: Install Dependencies
+# ============================================
   install-dependencies:
     name: "Stage 2: Build & Install Dependencies"
     runs-on: ubuntu-latest
@@ -69,7 +66,6 @@ jobs:
       - name: "Install backend dependencies"
         run: |
           cd services/backend
-          python -m pip install --upgrade pip setuptools wheel
           pip install -r requirements.txt
           pip install pytest flake8 bandit safety
           echo "  Backend dependencies installed"
@@ -80,9 +76,9 @@ jobs:
           npm install
           echo "  Frontend dependencies installed"
 
-  # ============================================
-  # Stage 3: Lint & Security
-  # ============================================
+# ============================================
+# STAGE 3: Lint & Security
+# ============================================
   lint-and-security:
     name: "Stage 3: Lint & Security Scan"
     runs-on: ubuntu-latest
@@ -151,9 +147,9 @@ jobs:
           npm audit --audit-level=moderate || true
           echo "  npm audit completed"
 
-  # ============================================
-  # Stage 4: Test
-  # ============================================
+# ============================================
+# STAGE 4: Test
+# ============================================
   test:
     name: "Stage 4: Test with PostgreSQL"
     runs-on: ubuntu-latest
@@ -195,7 +191,7 @@ jobs:
       - name: "Install backend dependencies"
         run: |
           cd services/backend
-          pip install --upgrade pip setuptools wheel
+          python -m pip install --upgrade pip setuptools wheel
           pip install -r requirements.txt
           pip install pytest pytest-cov
 
@@ -237,9 +233,9 @@ jobs:
           npm test -- --watchAll=false || true
           echo "  Frontend tests completed"
 
-  # ============================================
-  # Stage 5: Docker Build & Deploy
-  # ============================================
+# ============================================
+# STAGE 5: Docker Build & Deploy
+# ============================================
   docker-build-deploy:
     name: "Stage 5: Build Docker Images & Deploy"
     runs-on: ubuntu-latest
@@ -351,9 +347,9 @@ jobs:
           echo "Security Scans: Completed  "
           echo "================================================"
 
-  # ============================================
-  # Stage 6: Security Scan
-  # ============================================
+# ============================================
+# STAGE 6: Security Scan
+# ============================================
   security-scan:
     name: "Stage 6: Security Scan"
     runs-on: ubuntu-latest
