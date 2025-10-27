@@ -1,0 +1,100 @@
+name: ChatApp CI/CD
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  ci-cd:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: chatdb
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: verysecurepassword
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d chatdb"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      # 1️⃣ Checkout code
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      # 2️⃣ Set up Python
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      # 3️⃣ Set up Node.js
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      # 4️⃣ Install backend dependencies
+      - name: Install backend dependencies
+        run: |
+          cd services/backend
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # 5️⃣ Install frontend dependencies
+      - name: Install frontend dependencies
+        run: |
+          cd services/frontend
+          npm install
+
+      # 6️⃣ Lint backend
+      - name: Backend lint
+        run: |
+          cd services/backend
+          pip install flake8
+          flake8 .
+
+      # 7️⃣ Lint frontend
+      - name: Frontend lint
+        run: |
+          cd services/frontend
+          npx eslint .
+
+      # 8️⃣ Run backend tests
+      - name: Run backend tests
+        env:
+          DATABASE_URL: postgresql://postgres:verysecurepassword@localhost:5432/chatdb
+        run: |
+          cd services/backend
+          pytest tests -v
+
+      # 9️⃣ Run frontend tests
+      - name: Run frontend tests
+        run: |
+          cd services/frontend
+          npm test -- --watchAll=false
+
+      # 🔟 Build Docker images
+      - name: Build Docker images
+        run: |
+          docker-compose -f docker-compose.yml build
+
+      # 1️⃣1️⃣ Deploy to Docker Hub (conditional)
+      - name: Login to Docker Hub
+        if: github.ref == 'refs/heads/main' && success()
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Push Docker images
+        if: github.ref == 'refs/heads/main' && success()
+        run: |
+          docker-compose -f docker-compose.yml push
