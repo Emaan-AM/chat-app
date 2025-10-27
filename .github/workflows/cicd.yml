@@ -7,12 +7,9 @@ on:
     branches: [main, develop]
 
 # ============================================
-# JOBS
+# STAGE 1: Checkout & Setup
 # ============================================
 jobs:
-  # ============================================
-  # Stage 1: Checkout & Setup
-  # ============================================
   setup:
     name: "Stage 1: Checkout & Setup"
     runs-on: ubuntu-latest
@@ -41,9 +38,9 @@ jobs:
           echo "✅ Node version: $(node --version)"
           echo "✅ npm version: $(npm --version)"
 
-  # ============================================
-  # Stage 2: Install Dependencies
-  # ============================================
+# ============================================
+# STAGE 2: Install Dependencies
+# ============================================
   install-dependencies:
     name: "Stage 2: Build & Install Dependencies"
     runs-on: ubuntu-latest
@@ -55,12 +52,17 @@ jobs:
       - name: "Install system dependencies"
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential python3-dev libffi-dev libjpeg-dev zlib1g-dev libpq-dev gcc g++
+          sudo apt-get install -y \
+            build-essential python3-dev libffi-dev libjpeg-dev zlib1g-dev \
+            libpq-dev gcc g++ libssl-dev
+
+      - name: "Upgrade pip, setuptools, wheel"
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
 
       - name: "Install backend dependencies"
         run: |
           cd services/backend
-          python -m pip install --upgrade pip setuptools wheel
           pip install -r requirements.txt
           pip install pytest flake8 bandit safety
           echo "✅ Backend dependencies installed"
@@ -71,9 +73,9 @@ jobs:
           npm ci
           echo "✅ Frontend dependencies installed"
 
-  # ============================================
-  # Stage 3: Lint & Security
-  # ============================================
+# ============================================
+# STAGE 3: Lint & Security
+# ============================================
   lint-and-security:
     name: "Stage 3: Lint & Security Scan"
     runs-on: ubuntu-latest
@@ -95,9 +97,9 @@ jobs:
           npx eslint . || true
           npm audit --audit-level=moderate || true
 
-  # ============================================
-  # Stage 4: Test
-  # ============================================
+# ============================================
+# STAGE 4: Test
+# ============================================
   test:
     name: "Stage 4: Test with PostgreSQL"
     runs-on: ubuntu-latest
@@ -123,7 +125,7 @@ jobs:
       - name: "Install backend dependencies"
         run: |
           cd services/backend
-          pip install --upgrade pip setuptools wheel
+          python -m pip install --upgrade pip setuptools wheel
           pip install -r requirements.txt
           pip install pytest pytest-cov
 
@@ -160,9 +162,9 @@ jobs:
           cd services/frontend
           CI=true npm test -- --watchAll=false --passWithNoTests
 
-  # ============================================
-  # Stage 5: Docker Build & Deploy
-  # ============================================
+# ============================================
+# STAGE 5: Docker Build & Deploy
+# ============================================
   docker-build-deploy:
     name: "Stage 5: Build Docker Images & Deploy"
     runs-on: ubuntu-latest
@@ -182,6 +184,7 @@ jobs:
           echo "POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}" >> .env
           echo "SECRET_KEY=${{ secrets.SECRET_KEY }}" >> .env
           echo "FLASK_ENV=production" >> .env
+          # Frontend .env
           echo "REACT_APP_BACKEND_SERVICE_URL=${{ secrets.REACT_APP_BACKEND_SERVICE_URL }}" > services/frontend/.env
           echo "REACT_APP_WEBSOCKET_SERVICE_URL=${{ secrets.REACT_APP_WEBSOCKET_SERVICE_URL }}" >> services/frontend/.env
           echo "NODE_ENV=production" >> services/frontend/.env
@@ -206,9 +209,9 @@ jobs:
         run: |
           echo "🚀 Deployment completed successfully!"
 
-  # ============================================
-  # Stage 6: Security Scan
-  # ============================================
+# ============================================
+# STAGE 6: Security Scan
+# ============================================
   security-scan:
     name: "Stage 6: Security Scan"
     runs-on: ubuntu-latest
