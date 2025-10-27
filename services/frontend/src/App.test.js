@@ -1,8 +1,18 @@
+// src/App.test.js
 import { render, screen } from '@testing-library/react';
 import App from './App';
 
-test('renders learn react link', () => {
+// Make sure environment variables exist
+describe('Environment configuration', () => {
+  test('loads environment variables from .env', () => {
+    expect(process.env.REACT_APP_BACKEND_SERVICE_URL).toBeDefined();
+    expect(process.env.REACT_APP_WEBSOCKET_SERVICE_URL).toBeDefined();
+  });
+});
+
+// Basic render test
+test('renders chat app main component', () => {
   render(<App />);
-  const linkElement = screen.getByText(/learn react/i);
-  expect(linkElement).toBeInTheDocument();
+  const appElement = screen.getByTestId('app-root'); // we'll add this ID in App.js
+  expect(appElement).toBeInTheDocument();
 });
