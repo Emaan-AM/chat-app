@@ -38,15 +38,15 @@ jobs:
       - name: "Checkout code"
         uses: actions/checkout@v3
 
-      - name: "Install system dependencies for Pillow"
+      - name: "Install system dependencies"
         run: |
           sudo apt-get update
-          sudo apt-get install -y libjpeg-dev zlib1g-dev gcc g++ python3-dev
+          sudo apt-get install -y build-essential python3-dev libffi-dev libjpeg-dev zlib1g-dev
 
       - name: "Install backend dependencies"
         run: |
           cd services/backend
-          python -m pip install --upgrade pip
+          python -m pip install --upgrade pip setuptools wheel
           pip install -r requirements.txt
           pip install pytest flake8
 
