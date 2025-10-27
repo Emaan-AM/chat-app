@@ -65,7 +65,7 @@ jobs:
           DATABASE_URL: postgresql://postgres:verysecurepassword@localhost:5432/chatdb
           BACKEND_APP_SETTINGS: app.config.DevelopmentConfig
           SECRET_KEY: topsecretkey123
-          PYTHONPATH: ./services/backend
+          PYTHONPATH: ${{ github.workspace }}/services/backend
         run: |
           cd services/backend
           pytest tests -v
