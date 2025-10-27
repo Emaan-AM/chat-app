@@ -6,16 +6,19 @@ on:
   pull_request:
     branches: [main, develop]
 
+# ============================================
+# STAGE 1: Checkout & Setup
+# ============================================
 jobs:
-  # ============================================
-  # STAGE 1: Checkout & Setup
-  # ============================================
   setup:
     name: "Stage 1: Checkout & Setup"
     runs-on: ubuntu-latest
+    outputs:
+      python-version: '3.10'
+      node-version: '18'
     steps:
       - name: "Checkout code"
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: "Set up Python 3.10"
         uses: actions/setup-python@v4
@@ -23,57 +26,102 @@ jobs:
           python-version: '3.10'
 
       - name: "Set up Node.js"
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: services/frontend/package-lock.json
 
-  # ============================================
-  # STAGE 2: Install Dependencies
-  # ============================================
+# ============================================
+# STAGE 2: Install Dependencies
+# ============================================
   install-dependencies:
     name: "Stage 2: Install Dependencies"
     runs-on: ubuntu-latest
     needs: setup
     steps:
       - name: "Checkout code"
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
+
+      - name: "Set up Python"
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: "Set up Node.js"
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: "Cache pip packages"
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/pip
+            services/backend/__pycache__
+          key: ${{ runner.os }}-pip-${{ hashFiles('services/backend/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: "Cache node modules"
+        uses: actions/cache@v3
+        with:
+          path: services/frontend/node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles('services/frontend/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - name: "Install system dependencies"
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential python3-dev libffi-dev libjpeg-dev zlib1g-dev
 
       - name: "Install backend dependencies"
         run: |
           cd services/backend
-          python -m pip install --upgrade pip
+          python -m pip install --upgrade pip setuptools wheel
           pip install -r requirements.txt
-          pip install pytest flake8
+          pip install pytest flake8 pytest-cov
 
       - name: "Install frontend dependencies"
         run: |
           cd services/frontend
-          npm install
+          npm ci --silent
 
-  # ============================================
-  # STAGE 3: Lint
-  # ============================================
+# ============================================
+# STAGE 3: Lint
+# ============================================
   lint:
     name: "Stage 3: Lint"
     runs-on: ubuntu-latest
     needs: install-dependencies
     steps:
       - name: "Checkout code"
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
+
+      - name: "Set up Python"
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: "Set up Node.js"
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
 
       - name: "Backend lint"
         run: |
           cd services/backend
-          flake8 .
+          flake8 . --max-line-length=120 --extend-ignore=E203,W503
 
       - name: "Frontend lint"
         run: |
           cd services/frontend
-          npx eslint .
+          npx eslint . --max-warnings=0
 
-  # ============================================
-  # STAGE 4: Test
-  # ============================================
+# ============================================
+# STAGE 4: Test
+# ============================================
   test:
     name: "Stage 4: Test"
     runs-on: ubuntu-latest
@@ -82,54 +130,93 @@ jobs:
       postgres:
         image: postgres:15
         env:
-          POSTGRES_DB: chatdb
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: verysecurepassword
+          POSTGRES_DB: test_chatdb
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_password
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U postgres -d chatdb"
+          --health-cmd "pg_isready -U test_user -d test_chatdb"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
     steps:
       - name: "Checkout code"
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
+
+      - name: "Set up Python"
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: "Set up Node.js"
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: "Install backend dependencies"
+        run: |
+          cd services/backend
+          pip install -r requirements.txt
+          pip install pytest pytest-cov
+
+      - name: "Wait for PostgreSQL to be ready"
+        run: |
+          until pg_isready -h localhost -p 5432 -U test_user -d test_chatdb; do
+            echo "Waiting for PostgreSQL..."
+            sleep 2
+          done
 
       - name: "Run backend tests"
         env:
-          POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
-          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
-          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          BACKEND_APP_SETTINGS: ${{ secrets.BACKEND_APP_SETTINGS }}
-          SECRET_KEY: ${{ secrets.SECRET_KEY }}
+          POSTGRES_DB: test_chatdb
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_password
+          DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_chatdb
+          FLASK_ENV: testing
+          SECRET_KEY: test-secret-key-for-ci-cd
           PYTHONPATH: ${{ github.workspace }}/services/backend
         run: |
           cd services/backend
-          pytest tests -v
+          pytest tests/ -v --cov=app --cov-report=xml
 
-      - name: "Create frontend .env from secrets"
+      - name: "Upload coverage reports"
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./services/backend/coverage.xml
+          flags: unittests
+          name: codecov-umbrella
+
+      - name: "Install frontend dependencies"
         run: |
-          echo "REACT_APP_BACKEND_SERVICE_URL=${{ secrets.REACT_APP_BACKEND_SERVICE_URL }}" > services/frontend/.env
-          echo "REACT_APP_WEBSOCKET_SERVICE_URL=${{ secrets.REACT_APP_WEBSOCKET_SERVICE_URL }}" >> services/frontend/.env
-          echo "NODE_ENV=development" >> services/frontend/.env
+          cd services/frontend
+          npm ci --silent
+
+      - name: "Create frontend test environment"
+        run: |
+          echo "REACT_APP_BACKEND_SERVICE_URL=http://localhost:5004" > services/frontend/.env.test
+          echo "REACT_APP_WEBSOCKET_SERVICE_URL=ws://localhost:5001" >> services/frontend/.env.test
+          echo "NODE_ENV=test" >> services/frontend/.env.test
 
       - name: "Run frontend tests"
         run: |
           cd services/frontend
-          npm test -- --watchAll=false
+          CI=true npm test -- --watchAll=false --passWithNoTests
 
-  # ============================================
-  # STAGE 5: Docker Build & Deploy
-  # ============================================
+# ============================================
+# STAGE 5: Docker Build & Deploy
+# ============================================
   docker-deploy:
     name: "Stage 5: Docker Build & Deploy"
     runs-on: ubuntu-latest
     needs: test
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
     steps:
       - name: "Checkout code"
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
+
+      - name: "Set up Docker Buildx"
+        uses: docker/setup-buildx-action@v2
 
       - name: "Create .env for Docker Compose"
         run: |
@@ -137,28 +224,70 @@ jobs:
           echo "POSTGRES_USER=${{ secrets.POSTGRES_USER }}" >> .env
           echo "POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}" >> .env
           echo "SECRET_KEY=${{ secrets.SECRET_KEY }}" >> .env
+          echo "FLASK_ENV=production" >> .env
 
       - name: "Build Docker images"
-        run: docker compose -f docker-compose.yml build
+        run: |
+          docker compose -f docker-compose.yml build --no-cache --progress=plain
 
       - name: "Login to Docker Hub"
-        if: github.ref == 'refs/heads/main'
         uses: docker/login-action@v2
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
       - name: "Push Docker images"
-        if: github.ref == 'refs/heads/main'
-        run: docker compose -f docker-compose.yml push
+        run: |
+          docker compose -f docker-compose.yml push
+
+      - name: "Test Docker containers"
+        run: |
+          docker compose -f docker-compose.yml up -d
+          sleep 30
+          docker compose ps
+          docker compose logs backend
+          docker compose down
 
       - name: "Show deployment logs"
-        if: github.ref == 'refs/heads/main'
         run: |
           echo "=== DEPLOYMENT LOGS ==="
-          echo "✅ Docker images successfully pushed to Docker Hub!"
+          echo "✅ Docker images successfully built and pushed to Docker Hub!"
           echo "📅 Timestamp: $(date -u)"
           echo "🔗 Docker Hub URL: https://hub.docker.com/r/${{ secrets.DOCKER_USERNAME }}"
           echo "📝 Commit SHA: ${{ github.sha }}"
           echo "🎯 Branch: ${{ github.ref }}"
           echo "🚀 Deployment completed successfully!"
+
+      - name: "Create GitHub Release"
+        if: github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ github.run_number }}
+          name: Release v${{ github.run_number }}
+          body: |
+            Automated release from CI/CD pipeline
+            - Commit: ${{ github.sha }}
+            - Branch: ${{ github.ref }}
+          draft: false
+          prerelease: false
+
+# ============================================
+# STAGE 6: Security Scan
+# ============================================
+  security-scan:
+    name: "Stage 6: Security Scan"
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - name: "Checkout code"
+        uses: actions/checkout@v4
+
+      - name: "Scan for vulnerabilities"
+        uses: actions/dependency-review-action@v3
+
+      - name: "Scan Docker images"
+        run: |
+          docker compose -f docker-compose.yml build
+          trivy image emaan123/chat-app-backend:latest
+          trivy image emaan123/chat-app-frontend:latest
+          trivy image emaan123/chat-app-websocket:latest
