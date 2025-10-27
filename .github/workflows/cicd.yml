@@ -29,9 +29,9 @@ jobs:
 
       - name: "Verify Setup"
         run: |
-          echo "  Python version: $(python --version)"
-          echo "  Node version: $(node --version)"
-          echo "  npm version: $(npm --version)"
+          echo "✅ Python version: $(python --version)"
+          echo "✅ Node version: $(node --version)"
+          echo "✅ npm version: $(npm --version)"
 
   # ============================================
   # STAGE 2: Install Dependencies (Build & Install)
@@ -66,7 +66,7 @@ jobs:
             libjpeg-dev \
             zlib1g-dev \
             libffi-dev
-          echo "  System dependencies installed"
+          echo "✅ System dependencies installed"
 
       - name: "Install backend dependencies"
         run: |
@@ -74,13 +74,13 @@ jobs:
           python -m pip install --upgrade pip setuptools wheel
           pip install -r requirements.txt
           pip install pytest flake8 bandit safety
-          echo "  Backend dependencies installed"
+          echo "✅ Backend dependencies installed"
 
       - name: "Install frontend dependencies"
         run: |
           cd services/frontend
           npm install
-          echo "  Frontend dependencies installed"
+          echo "✅ Frontend dependencies installed"
 
   # ============================================
   # STAGE 3: Lint & Security Scan
@@ -106,51 +106,66 @@ jobs:
       - name: "Install system dependencies"
         run: |
           sudo apt-get update
-          sudo apt-get install -y gcc g++ python3-dev libpq-dev
-          echo "  System dependencies installed"
+          sudo apt-get install -y \
+            gcc \
+            g++ \
+            python3-dev \
+            libpq-dev \
+            build-essential \
+            libjpeg-dev \
+            zlib1g-dev \
+            libffi-dev
+          echo "✅ System dependencies installed"
 
-      - name: "Install linting and security tools"
+      - name: "Install backend dependencies for security scanning"
         run: |
+          cd services/backend
           pip install --upgrade pip setuptools wheel
+          pip install -r requirements.txt
           pip install flake8 bandit safety
+          echo "✅ Backend dependencies installed"
+
+      - name: "Install frontend dependencies"
+        run: |
           cd services/frontend
           npm install
+          echo "✅ Frontend dependencies installed"
 
       - name: "Backend Lint - Flake8"
         run: |
-          echo "  Running Flake8 linting..."
+          echo "🔍 Running Flake8 linting..."
           cd services/backend
           flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics || true
           flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
-          echo "  Flake8 linting completed"
+          echo "✅ Flake8 linting completed"
 
       - name: "Backend Security Scan - Bandit"
         run: |
-          echo "  Running Bandit security scan..."
+          echo "🔒 Running Bandit security scan..."
           cd services/backend
           bandit -r . -ll || true
-          echo "  Bandit security scan completed"
+          echo "✅ Bandit security scan completed"
 
       - name: "Backend Security - Dependency Check (Safety)"
         run: |
-          echo "  Checking dependencies for vulnerabilities..."
+          echo "🔒 Checking dependencies for vulnerabilities..."
           cd services/backend
           safety check || true
-          echo "  Dependency check completed"
+          echo "✅ Dependency check completed"
 
       - name: "Frontend Lint - ESLint"
         run: |
-          echo "  Running ESLint..."
+          echo "🔍 Running ESLint..."
           cd services/frontend
           npx eslint . || true
-          echo "  ESLint completed"
+          echo "✅ ESLint completed"
 
       - name: "Frontend Security - npm audit"
         run: |
-          echo "  Running npm security audit..."
+          echo "🔒 Running npm security audit..."
           cd services/frontend
           npm audit --audit-level=moderate || true
-          echo "  npm audit completed"
+          echo "✅ npm audit completed"
 
   # ============================================
   # STAGE 4: Test (with DB Service)
@@ -190,8 +205,17 @@ jobs:
       - name: "Install system dependencies"
         run: |
           sudo apt-get update
-          sudo apt-get install -y gcc g++ python3-dev libpq-dev postgresql-client
-          echo "  System dependencies installed"
+          sudo apt-get install -y \
+            gcc \
+            g++ \
+            python3-dev \
+            libpq-dev \
+            build-essential \
+            postgresql-client \
+            libjpeg-dev \
+            zlib1g-dev \
+            libffi-dev
+          echo "✅ System dependencies installed"
 
       - name: "Install backend dependencies"
         run: |
@@ -199,16 +223,17 @@ jobs:
           pip install --upgrade pip setuptools wheel
           pip install -r requirements.txt
           pip install pytest pytest-cov
+          echo "✅ Backend dependencies installed"
 
       - name: "Wait for PostgreSQL to be ready"
         run: |
-          echo " Waiting for PostgreSQL to be ready..."
+          echo "⏳ Waiting for PostgreSQL to be ready..."
           for i in {1..30}; do
             pg_isready -h localhost -p 5432 -U postgres && break
             echo "Waiting for PostgreSQL... ($i/30)"
             sleep 2
           done
-          echo "  PostgreSQL is ready"
+          echo "✅ PostgreSQL is ready"
 
       - name: "Run backend tests with coverage"
         env:
@@ -220,28 +245,30 @@ jobs:
           SECRET_KEY: ${{ secrets.SECRET_KEY }}
           PYTHONPATH: ${{ github.workspace }}/services/backend
         run: |
-          echo " Running backend tests..."
+          echo "🧪 Running backend tests..."
           cd services/backend
           pytest tests -v --cov=. --cov-report=term-missing || true
-          echo "  Backend tests completed"
+          echo "✅ Backend tests completed"
 
       - name: "Install frontend dependencies"
         run: |
           cd services/frontend
           npm install
+          echo "✅ Frontend dependencies installed"
 
       - name: "Create frontend .env from secrets"
         run: |
           echo "REACT_APP_BACKEND_SERVICE_URL=${{ secrets.REACT_APP_BACKEND_SERVICE_URL }}" > services/frontend/.env
           echo "REACT_APP_WEBSOCKET_SERVICE_URL=${{ secrets.REACT_APP_WEBSOCKET_SERVICE_URL }}" >> services/frontend/.env
           echo "NODE_ENV=development" >> services/frontend/.env
+          echo "✅ Frontend .env created"
 
       - name: "Run frontend tests"
         run: |
-          echo " Running frontend tests..."
+          echo "🧪 Running frontend tests..."
           cd services/frontend
           npm test -- --watchAll=false || true
-          echo "  Frontend tests completed"
+          echo "✅ Frontend tests completed"
 
   # ============================================
   # STAGE 5: Build Docker Images & Deploy
@@ -264,7 +291,7 @@ jobs:
           echo "REACT_APP_BACKEND_SERVICE_URL=${{ secrets.REACT_APP_BACKEND_SERVICE_URL }}" >> .env
           echo "REACT_APP_WEBSOCKET_SERVICE_URL=${{ secrets.REACT_APP_WEBSOCKET_SERVICE_URL }}" >> .env
           echo "NODE_ENV=production" >> .env
-          echo "  Environment file created"
+          echo "✅ Environment file created"
 
       - name: "Create frontend .env file"
         run: |
@@ -272,17 +299,17 @@ jobs:
           echo "REACT_APP_BACKEND_SERVICE_URL=${{ secrets.REACT_APP_BACKEND_SERVICE_URL }}" > services/frontend/.env
           echo "REACT_APP_WEBSOCKET_SERVICE_URL=${{ secrets.REACT_APP_WEBSOCKET_SERVICE_URL }}" >> services/frontend/.env
           echo "NODE_ENV=production" >> services/frontend/.env
-          echo "  Frontend .env created for Docker build"
+          echo "✅ Frontend .env created for Docker build"
 
       - name: "Build Docker images"
         run: |
-          echo " Building Docker images..."
+          echo "🐳 Building Docker images..."
           docker compose -f docker-compose.yml build
-          echo "  Docker images built successfully"
+          echo "✅ Docker images built successfully"
 
       - name: "List Docker images"
         run: |
-          echo " Built Docker images:"
+          echo "📦 Built Docker images:"
           docker images | grep chat-app || docker images
 
       - name: "Login to Docker Hub"
@@ -295,44 +322,44 @@ jobs:
       - name: "Push Docker images to Docker Hub"
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         run: |
-          echo " Pushing Docker images to Docker Hub..."
+          echo "🚀 Pushing Docker images to Docker Hub..."
           docker compose -f docker-compose.yml push
-          echo "  Docker images pushed successfully"
+          echo "✅ Docker images pushed successfully"
 
       - name: "Show Deployment Logs"
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         run: |
           echo "================================================"
-          echo " DEPLOYMENT TO DOCKER HUB COMPLETED"
+          echo "🎉 DEPLOYMENT TO DOCKER HUB COMPLETED"
           echo "================================================"
           echo ""
-          echo " Deployment Timestamp: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
-          echo " Git Commit SHA: ${{ github.sha }}"
-          echo " Branch: ${{ github.ref_name }}"
-          echo " Triggered by: ${{ github.actor }}"
-          echo "  Workflow Run: #${{ github.run_number }}"
+          echo "📅 Deployment Timestamp: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+          echo "📦 Git Commit SHA: ${{ github.sha }}"
+          echo "🌿 Branch: ${{ github.ref_name }}"
+          echo "👤 Triggered by: ${{ github.actor }}"
+          echo "🏷️  Workflow Run: #${{ github.run_number }}"
           echo ""
           echo "================================================"
-          echo " DOCKER IMAGES PUSHED TO REGISTRY:"
+          echo "📦 DOCKER IMAGES PUSHED TO REGISTRY:"
           echo "================================================"
           echo ""
-          echo "  Backend Image:"
+          echo "✅ Backend Image:"
           echo "   Repository: emaan123/chat-app-backend"
           echo "   Tag: latest"
           echo "   URL: https://hub.docker.com/r/emaan123/chat-app-backend"
           echo ""
-          echo "  WebSocket Image:"
+          echo "✅ WebSocket Image:"
           echo "   Repository: emaan123/chat-app-websocket"
           echo "   Tag: latest"
           echo "   URL: https://hub.docker.com/r/emaan123/chat-app-websocket"
           echo ""
-          echo "  Frontend Image:"
+          echo "✅ Frontend Image:"
           echo "   Repository: emaan123/chat-app-frontend"
           echo "   Tag: latest"
           echo "   URL: https://hub.docker.com/r/emaan123/chat-app-frontend"
           echo ""
           echo "================================================"
-          echo "  HOW TO USE DEPLOYED IMAGES:"
+          echo "🔍 HOW TO USE DEPLOYED IMAGES:"
           echo "================================================"
           echo ""
           echo "Pull images:"
@@ -345,37 +372,37 @@ jobs:
           echo "  docker-compose up -d"
           echo ""
           echo "================================================"
-          echo " DEPLOYMENT SUMMARY:"
+          echo "📊 DEPLOYMENT SUMMARY:"
           echo "================================================"
           echo "Registry: Docker Hub"
-          echo "Status:   SUCCESS"
+          echo "Status: ✅ SUCCESS"
           echo "Images Pushed: 3/3"
           echo "Docker Hub User: emaan123"
           echo "Services: Backend, WebSocket, Frontend"
           echo "Deployment Method: Conditional (main branch only)"
-          echo "Tests Status: All Passed  "
-          echo "Security Scans: Completed  "
+          echo "Tests Status: All Passed ✅"
+          echo "Security Scans: Completed ✅"
           echo "================================================"
 
       - name: "Verify Docker Hub Deployment"
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         run: |
-          echo "  Verifying images are available on Docker Hub..."
+          echo "🔍 Verifying images are available on Docker Hub..."
           echo ""
           echo "Pulling backend image..."
           docker pull emaan123/chat-app-backend:latest
-          echo "  Backend image verified"
+          echo "✅ Backend image verified"
           echo ""
           echo "Pulling websocket image..."
           docker pull emaan123/chat-app-websocket:latest
-          echo "  WebSocket image verified"
+          echo "✅ WebSocket image verified"
           echo ""
           echo "Pulling frontend image..."
           docker pull emaan123/chat-app-frontend:latest
-          echo "  Frontend image verified"
+          echo "✅ Frontend image verified"
           echo ""
           echo "================================================"
-          echo " ALL IMAGES SUCCESSFULLY DEPLOYED & VERIFIED!"
+          echo "🎉 ALL IMAGES SUCCESSFULLY DEPLOYED & VERIFIED!"
           echo "================================================"
           echo "Deployment completed at: $(date -u)"
-          echo "All systems operational! "
+          echo "All systems operational! 🚀"
