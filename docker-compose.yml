@@ -15,6 +15,7 @@ services:
       - chatnet
 
   backend:
+    image: emaan123/chat-app-backend:latest
     build:
       context: ./services/backend
       dockerfile: Dockerfile
@@ -37,6 +38,7 @@ services:
       - chatnet
 
   websocket:
+    image: emaan123/chat-app-websocket:latest
     build:
       context: ./services/websocket
       dockerfile: Dockerfile
@@ -59,6 +61,7 @@ services:
       - chatnet
 
   frontend:
+    image: emaan123/chat-app-frontend:latest
     build:
       context: ./services/frontend
       dockerfile: Dockerfile
