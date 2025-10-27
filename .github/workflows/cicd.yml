@@ -106,3 +106,15 @@ jobs:
       - name: Push Docker images
         if: github.ref == 'refs/heads/main'
         run: docker compose -f docker-compose.yml push
+
+      # 🔹 ADD THIS STEP FOR DEPLOYMENT LOGS
+      - name: Show deployment logs
+        if: github.ref == 'refs/heads/main'
+        run: |
+          echo "=== DEPLOYMENT LOGS ==="
+          echo "✅ Docker images successfully pushed to Docker Hub!"
+          echo "📅 Timestamp: $(date -u)"
+          echo "🔗 Docker Hub URL: https://hub.docker.com/r/${{ secrets.DOCKER_USERNAME }}"
+          echo "📝 Commit SHA: ${{ github.sha }}"
+          echo "🎯 Branch: ${{ github.ref }}"
+          echo "🚀 Deployment completed successfully!"
