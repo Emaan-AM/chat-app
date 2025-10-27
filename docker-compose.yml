@@ -1,62 +1,83 @@
 version: "3.8"
 
 services:
+  db:
+    image: postgres:15
+    container_name: chatapp_db
+    restart: always
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    expose:
+      - 5432
+    networks:
+      - chatnet
+
   backend:
     build:
       context: ./services/backend
       dockerfile: Dockerfile
-    entrypoint: ["sh", "/usr/src/chat-app/entrypoint.sh"] # new
+    container_name: chatapp_backend
+    entrypoint: ["sh", "/usr/src/chat-app/entrypoint.sh"]
     volumes:
       - "./services/backend:/usr/src/chat-app"
     ports:
-      - 5004:5000
+      - "5004:5000"
     environment:
-      - FLASK_ENV=development
-      - APP_SETTINGS=app.config.DevelopmentConfig
-      - DATABASE_URL=postgresql://postgres:postgres@db:5432/app_dev
-      - SECRET_KEY=secret
+      FLASK_ENV: development
+      APP_SETTINGS: app.config.DevelopmentConfig
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      SECRET_KEY: ${SECRET_KEY}
     depends_on:
       - db
-
-  db:
-    build:
-      context: ./services/db
-      dockerfile: Dockerfile
-    expose:
-      - 5432
-    environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-
-  frontend:
-    build:
-      context: ./services/frontend
-      dockerfile: Dockerfile
-    volumes:
-      - "./services/frontend:/usr/src/chat-app"
-      - "/usr/src/chat-app/node_modules"
-    ports:
-      - 3000:3000
-    environment:
-      - NODE_ENV=development
-      - REACT_APP_BACKEND_SERVICE_URL=http://localhost:5004
-      - REACT_APP_WEBSOCKET_SERVICE_URL=http://localhost:5001
-    depends_on:
-      - backend
+    networks:
+      - chatnet
 
   websocket:
     build:
       context: ./services/websocket
       dockerfile: Dockerfile
-    entrypoint: ["sh", "/usr/src/chat-app/entrypoint_socket.sh"] # new
+    container_name: chatapp_websocket
+    entrypoint: ["sh", "/usr/src/chat-app/entrypoint_socket.sh"]
     volumes:
       - "./services/websocket:/usr/src/chat-app"
     ports:
-      - 5001:5001
+      - "5001:5001"
     environment:
-      - FLASK_ENV=development
-      - APP_SETTINGS=app.config_socket.DevelopmentConfig
-      - DATABASE_URL=postgresql://postgres:postgres@db:5432/app_dev
-      - SECRET_KEY=secret
+      FLASK_ENV: development
+      APP_SETTINGS: app.config_socket.DevelopmentConfig
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      SECRET_KEY: ${SECRET_KEY}
     depends_on:
       - db
+    networks:
+      - chatnet
+
+  frontend:
+    build:
+      context: ./services/frontend
+      dockerfile: Dockerfile
+    container_name: chatapp_frontend
+    volumes:
+      - "./services/frontend:/usr/src/chat-app"
+      - "/usr/src/chat-app/node_modules"
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: development
+      REACT_APP_BACKEND_SERVICE_URL: http://backend:5004
+      REACT_APP_WEBSOCKET_SERVICE_URL: http://websocket:5001
+    depends_on:
+      - backend
+      - websocket
+    networks:
+      - chatnet
+
+volumes:
+  db_data:
+
+networks:
+  chatnet:
