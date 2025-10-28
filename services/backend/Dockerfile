@@ -1,22 +1,25 @@
-FROM python:3.9-slim
+FROM python:3.10-slim
 
 WORKDIR /usr/src/chat-app
 
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
-
-RUN apt-get update \
-    && apt-get -y install netcat-openbsd gcc libpq-dev \
-    && apt-get clean \
+# Install system dependencies including netcat
+RUN apt-get update && apt-get install -y \
+    gcc \
+    postgresql-client \
+    netcat-traditional \
     && rm -rf /var/lib/apt/lists/*
 
-COPY ./requirements.txt .
-RUN pip install --no-cache-dir --upgrade pip \
-    && pip install --no-cache-dir -r requirements.txt
+# Copy requirements and install Python dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
-COPY ./entrypoint.sh /usr/src/chat-app/entrypoint.sh
-RUN chmod +x /usr/src/chat-app/entrypoint.sh
-
+# Copy application code
 COPY . .
+
+# Make entrypoint executable
+RUN chmod +x entrypoint.sh
+
+# Expose port
+EXPOSE 5000
 
 ENTRYPOINT ["sh", "/usr/src/chat-app/entrypoint.sh"]

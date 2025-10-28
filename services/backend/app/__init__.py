@@ -36,6 +36,15 @@ def create_app(script_info=None):
     )
     db.init_app(app)
 
+    # Initialize Redis cache
+    from .cache import init_cache
+    try:
+        init_cache(app)
+        print("✅ Redis cache initialized successfully")
+    except Exception as e:
+        print(f"⚠️  Redis cache initialization failed: {e}")
+        print("Application will continue without cache")
+
     # register api
     from app.api import api
     api.init_app(app)

@@ -8,3 +8,5 @@ SQLAlchemy==1.4.46
 psycopg2-binary==2.9.3
 Werkzeug==2.2.3
 python-dotenv==0.21.0
+redis==5.0.1
+Flask-Caching==2.1.0
