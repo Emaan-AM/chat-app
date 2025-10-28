@@ -141,7 +141,7 @@ jobs:
 
       - name: "Backend Lint - Flake8"
         run: |
-          echo "🔍 Running Flake8 linting..."
+          echo "Running Flake8 linting..."
           cd services/backend
           flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics || true
           flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
@@ -149,21 +149,21 @@ jobs:
 
       - name: "Backend Security Scan - Bandit"
         run: |
-          echo "🔒 Running Bandit security scan..."
+          echo "Running Bandit security scan..."
           cd services/backend
           bandit -r . -ll || true
           echo "✅ Bandit security scan completed"
 
       - name: "Backend Security - Dependency Check (Safety)"
         run: |
-          echo "🔒 Checking dependencies for vulnerabilities..."
+          echo "Checking dependencies for vulnerabilities..."
           cd services/backend
           safety check || true
           echo "✅ Dependency check completed"
 
       - name: "Frontend Lint - ESLint"
         run: |
-          echo "🔍 Running ESLint..."
+          echo "Running ESLint..."
           cd services/frontend
           npx eslint . || true
           echo "✅ ESLint completed"
