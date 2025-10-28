@@ -27,7 +27,7 @@ services:
     image: redis:7-alpine
     container_name: chatapp_redis
     restart: always
-    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-}
+    command: redis-server --appendonly yes 
     ports:
       - "6379:6379"
     volumes:
