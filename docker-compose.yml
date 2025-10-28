@@ -1,78 +1,118 @@
+version: '3.8'
+
 services:
+  # PostgreSQL Database
   db:
     image: postgres:15
     container_name: chatapp_db
     restart: always
     environment:
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-chatdb}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-verysecurepassword}
     volumes:
       - db_data:/var/lib/postgresql/data
     expose:
       - 5432
     networks:
       - chatnet
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-chatdb}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: chatapp_redis
+    restart: always
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-}
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - chatnet
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # Backend Service
   backend:
     image: emaan123/chat-app-backend:latest
     build:
       context: ./services/backend
       dockerfile: Dockerfile
     container_name: chatapp_backend
-    entrypoint: ["sh", "/usr/src/chat-app/entrypoint.sh"]
+    restart: always
     env_file:
       - .env
     volumes:
-      - "./services/backend:/usr/src/chat-app"
+      - ./services/backend:/usr/src/chat-app
     ports:
       - "5004:5000"
     environment:
-      FLASK_ENV: development
-      APP_SETTINGS: app.config.DevelopmentConfig
-      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
-      SECRET_KEY: ${SECRET_KEY}
+      FLASK_ENV: ${FLASK_ENV:-development}
+      APP_SETTINGS: ${APP_SETTINGS:-app.config.DevelopmentConfig}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-verysecurepassword}@db:5432/${POSTGRES_DB:-chatdb}
+      REDIS_URL: redis://redis:6379/0
+      SECRET_KEY: ${SECRET_KEY:-dev-secret-key}
     depends_on:
-      - db
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     networks:
       - chatnet
 
+  # WebSocket Service
   websocket:
     image: emaan123/chat-app-websocket:latest
     build:
       context: ./services/websocket
       dockerfile: Dockerfile
     container_name: chatapp_websocket
-    entrypoint: ["sh", "/usr/src/chat-app/entrypoint_socket.sh"]
+    restart: always
     env_file:
       - .env
     volumes:
-      - "./services/websocket:/usr/src/chat-app"
+      - ./services/websocket:/usr/src/chat-app
     ports:
       - "5001:5001"
     environment:
-      FLASK_ENV: development
-      APP_SETTINGS: app.config_socket.DevelopmentConfig
-      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
-      SECRET_KEY: ${SECRET_KEY}
+      FLASK_ENV: ${FLASK_ENV:-development}
+      APP_SETTINGS: ${APP_SETTINGS:-app.config_socket.DevelopmentConfig}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-verysecurepassword}@db:5432/${POSTGRES_DB:-chatdb}
+      REDIS_URL: redis://redis:6379/0
+      SECRET_KEY: ${SECRET_KEY:-dev-secret-key}
     depends_on:
-      - db
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     networks:
       - chatnet
 
+  # Frontend Service
   frontend:
     image: emaan123/chat-app-frontend:latest
     build:
       context: ./services/frontend
       dockerfile: Dockerfile
     container_name: chatapp_frontend
+    restart: always
     env_file:
       - ./services/frontend/.env
     volumes:
-      - "./services/frontend:/usr/src/chat-app"
-      - "/usr/src/chat-app/node_modules"
+      - ./services/frontend:/usr/src/chat-app
+      - /usr/src/chat-app/node_modules
     ports:
       - "3000:3000"
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
     depends_on:
       - backend
       - websocket
@@ -81,6 +121,10 @@ services:
 
 volumes:
   db_data:
+    driver: local
+  redis_data:
+    driver: local
 
 networks:
   chatnet:
+    driver: bridge

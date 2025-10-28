@@ -1,11 +1,20 @@
 #!/bin/sh
 
-echo "Waiting for postgres..."
+echo "================================================"
+echo "🚀 Starting ChatApp WebSocket Server"
+echo "================================================"
 
+echo "⏳ Waiting for PostgreSQL..."
 while ! nc -z db 5432; do
   sleep 0.1
 done
+echo "✅ PostgreSQL is ready"
 
-echo "PostgreSQL started"
+echo "⏳ Waiting for Redis..."
+while ! nc -z redis 6379; do
+  sleep 0.1
+done
+echo "✅ Redis is ready"
 
-gunicorn 'manage_socket:create_app()' --worker-class eventlet --workers 1 --bind 0.0.0.0:5001 --reload
+echo "🌐 Starting WebSocket server..."
+python manage_socket.py run -h 0.0.0.0
