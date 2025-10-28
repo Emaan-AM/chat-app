@@ -643,5 +643,5 @@ jobs:
           echo "  ✅ All Tests: Passed"
           echo "  ✅ Security Scans: Clean"
           echo ""
-          echo "All systems operational! 🚀"
+          echo "All systems operational!"
           echo "================================================"
