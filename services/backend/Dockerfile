@@ -22,5 +22,4 @@ RUN chmod +x entrypoint.sh
 # Expose port
 EXPOSE 5000
 
-# Set entrypoint
 ENTRYPOINT ["sh", "/usr/src/chat-app/entrypoint.sh"]
