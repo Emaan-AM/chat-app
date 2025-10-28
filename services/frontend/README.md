@@ -64,27 +64,7 @@ git clone https://github.com/Emaan-AM/chat-app.git
 cd chat-app
 ```
 
-### **2. Configure Environment Variables**
-
-Create a `.env` file in the root directory with the following configuration:
-
-```bash
-# Frontend
-REACT_APP_BACKEND_SERVICE_URL=http://localhost:5004
-REACT_APP_WEBSOCKET_SERVICE_URL=http://localhost:5001
-
-# Backend / Database
-POSTGRES_USER=postgres
-POSTGRES_PASSWORD=yourpassword
-POSTGRES_DB=chatapp_db
-DATABASE_URL=postgresql://postgres:yourpassword@db:5432/chatapp_db
-
-# Flask
-SECRET_KEY=your-secret-key
-FLASK_ENV=development
-```
-
-### **3. Build and Run with Docker Compose**
+### **2. Build and Run with Docker Compose**
 
 ```bash
 docker-compose up --build
@@ -95,7 +75,7 @@ The application will be available at:
 - **Backend API**: http://localhost:5004
 - **WebSocket**: http://localhost:5001
 
-### **4. Initialize the Database**
+### **3. Initialize the Database**
 
 ```bash
 docker-compose exec backend python manage.py reset_db

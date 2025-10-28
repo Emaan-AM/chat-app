@@ -1,3 +1,5 @@
+# database Dockerfile
+
 FROM postgres:11-alpine
 
 # run create.sql on init
