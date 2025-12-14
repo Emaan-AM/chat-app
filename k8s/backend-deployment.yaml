@@ -1,0 +1,77 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: dev
+  labels:
+    app: backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+      - name: backend
+        image: chatapp-backend:latest
+        imagePullPolicy: Never  # ← ADD THIS LINE
+        ports:
+        - containerPort: 5004
+        env:
+        - name: FLASK_ENV
+          valueFrom:
+            configMapKeyRef:
+              name: chatapp-config
+              key: FLASK_ENV
+        - name: BACKEND_APP_SETTINGS
+          valueFrom:
+            configMapKeyRef:
+              name: chatapp-config
+              key: BACKEND_APP_SETTINGS
+        - name: SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: chatapp-secrets
+              key: SECRET_KEY
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: chatapp-secrets
+              key: DATABASE_URL
+        - name: POSTGRES_DB
+          valueFrom:
+            configMapKeyRef:
+              name: chatapp-config
+              key: POSTGRES_DB
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: chatapp-secrets
+              key: POSTGRES_USER
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: chatapp-secrets
+              key: POSTGRES_PASSWORD
+        - name: DB_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: chatapp-config
+              key: DB_HOST
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+  namespace: dev
+spec:
+  selector:
+    app: backend
+  ports:
+  - port: 5004
+    targetPort: 5004
+  type: ClusterIP

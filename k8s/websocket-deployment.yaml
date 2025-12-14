@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: websocket
+  namespace: dev
+  labels:
+    app: websocket
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: websocket
+  template:
+    metadata:
+      labels:
+        app: websocket
+    spec:
+      containers:
+      - name: websocket
+        image: chatapp-websocket:latest
+        imagePullPolicy: Never  # ← ADD THIS LINE
+        ports:
+        - containerPort: 5001
+        env:
+        - name: FLASK_ENV
+          valueFrom:
+            configMapKeyRef:
+              name: chatapp-config
+              key: FLASK_ENV
+        - name: WEBSOCKET_APP_SETTINGS
+          valueFrom:
+            configMapKeyRef:
+              name: chatapp-config
+              key: WEBSOCKET_APP_SETTINGS
+        - name: SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: chatapp-secrets
+              key: SECRET_KEY
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: chatapp-secrets
+              key: DATABASE_URL
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: websocket
+  namespace: dev
+spec:
+  selector:
+    app: websocket
+  ports:
+  - port: 5001
+    targetPort: 5001
+  type: ClusterIP

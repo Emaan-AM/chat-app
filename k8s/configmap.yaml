@@ -1,0 +1,39 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: chatapp-config
+  namespace: dev
+data:
+  # Flask settings
+  FLASK_ENV: "development"
+  BACKEND_APP_SETTINGS: "app.config.DevelopmentConfig"
+  WEBSOCKET_APP_SETTINGS: "app.config_socket.DevelopmentConfig"
+  
+  # Database settings
+  POSTGRES_DB: "chatdb"
+  DB_HOST: "postgres"
+  
+  # React Frontend URLs
+  REACT_APP_BACKEND_SERVICE_URL: "http://backend:5004"
+  REACT_APP_WEBSOCKET_SERVICE_URL: "http://websocket:5001"
+  NODE_ENV: "development"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: chatapp-config
+  namespace: prod
+data:
+  # Flask settings
+  FLASK_ENV: "production"
+  BACKEND_APP_SETTINGS: "app.config.ProductionConfig"
+  WEBSOCKET_APP_SETTINGS: "app.config_socket.ProductionConfig"
+  
+  # Database settings
+  POSTGRES_DB: "chatdb"
+  DB_HOST: "postgres"
+  
+  # React Frontend URLs
+  REACT_APP_BACKEND_SERVICE_URL: "http://backend:5004"
+  REACT_APP_WEBSOCKET_SERVICE_URL: "http://websocket:5001"
+  NODE_ENV: "production"
