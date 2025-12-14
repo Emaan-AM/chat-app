@@ -32,3 +32,4 @@ python-dotenv==0.21.0
 alembic==1.12.1
 redis==5.0.1
 Flask-Caching==2.1.0
+prometheus_client

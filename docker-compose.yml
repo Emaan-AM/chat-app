@@ -54,6 +54,7 @@ services:
       - ./services/backend:/usr/src/chat-app
     ports:
       - "5004:5000"
+      - "5006:5006"
     environment:
       FLASK_ENV: ${FLASK_ENV:-development}
       APP_SETTINGS: ${APP_SETTINGS:-app.config.DevelopmentConfig}
