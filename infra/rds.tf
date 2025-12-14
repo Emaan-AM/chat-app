@@ -9,11 +9,6 @@ resource "aws_db_subnet_group" "main" {
   }
 }
 
-resource "random_password" "db_password" {
-  length  = 16
-  special = true
-  override_special = "!#$%&*()-_=+[]{}<>:?"
-}
 
 resource "aws_db_instance" "postgresql" {
   identifier        = "${var.project_name}-${var.environment}-postgres"
@@ -26,7 +21,7 @@ resource "aws_db_instance" "postgresql" {
 
   db_name  = var.db_name
   username = var.db_username
-  password = var.db_password != "" ? var.db_password : random_password.db_password.result
+  password = var.db_password
 
   db_subnet_group_name   = aws_db_subnet_group.main.name
   vpc_security_group_ids = [aws_security_group.rds.id]
