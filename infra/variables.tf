@@ -67,6 +67,7 @@ variable "db_password" {
   description = "Database password - SET THIS IN terraform.tfvars"
   type        = string
   sensitive   = true
+  default     = ""
 }
 
 variable "db_allocated_storage" {
