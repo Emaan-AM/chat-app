@@ -42,7 +42,7 @@ output "rds_address" {
 
 output "database_url" {
   description = "Database connection URL"
-  value       = "postgresql://${aws_db_instance.postgresql.username}:${var.db_password != "" ? var.db_password : random_password.db_password.result}@${aws_db_instance.postgresql.endpoint}/${aws_db_instance.postgresql.db_name}"
+  value = "postgresql://${aws_db_instance.postgresql.username}:${var.db_password}@${aws_db_instance.postgresql.endpoint}/${aws_db_instance.postgresql.db_name}"
   sensitive   = true
 }
 
